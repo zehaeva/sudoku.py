@@ -1,5 +1,5 @@
 __author__ = 'zehaeva'
-import cmd, sys
+import cmd, sys, random
 
 class SudokuBoard:
     size = 9
@@ -43,12 +43,12 @@ class SudokuBoard:
                 am_i = False
                 break
 
-        if not am_i:
+        if am_i:
             # now to check the subcell
             # which cell_row am i in?
             cell_row = int(int(x / self.sub) * self.sub)
             cell_column = int(int(y / self.sub) * self.sub)
-
+            #print ('section [{}][{}]'.format(cell_row, cell_column))
             for xs in range(cell_row, (cell_row + self.sub)):
                 for ys in range(cell_column, (cell_column + self.sub)):
                     if self.board[x][y] == self.board[xs][ys] and (xs, ys) != (x, y):
@@ -57,6 +57,33 @@ class SudokuBoard:
                 if not am_i:
                     break
         return am_i
+
+    def clear_cells(self, count):
+        my_range = list(range(0, self.size))
+        my_cells = list()
+        for x in my_range:
+            for y in my_range:
+                my_cells.append((x, y))
+
+        for i in range(0, count):
+            z = random.choice(my_cells)
+            self.board[z[0]][z[1]] = self.empty_cell
+            my_cells.remove(z)
+
+    def easy(self):
+        self.clear_cells(int(self.size ** 2 * .7))
+
+    def medium(self):
+        self.clear_cells(int(self.size ** 2 * .6))
+
+    def hard(self):
+        self.clear_cells(int(self.size ** 2 * .5))
+
+    def clear(self):
+        my_range = list(range(0, self.size))
+        for x in my_range:
+            for y in my_range:
+                self.board[x][y] = self.empty_cell
 
     def valid_board(self):
         am_i = True
@@ -70,6 +97,50 @@ class SudokuBoard:
                 break
         return am_i
 
+    def fill_col(self, x):
+        my_range = list(range(0, self.size))
+        values = list(range(1, self.size + 1))
+        repeat = False
+        for y in my_range:
+            curr_value = self.empty_cell
+            counter = 0
+            while curr_value == self.empty_cell:
+                if counter > 10:
+                #clear col
+                    repeat = True
+                    for yp in my_range:
+                        self.board[x][yp] = self.empty_cell
+                    break
+                else:
+                    counter += 1
+                z = random.choice(values)
+                self.board[x][y] = z
+                if self.valid_cell(x, y):
+                    curr_value = z
+                    values.remove(z)
+                else:
+                    self.board[x][y] = self.empty_cell
+            if repeat:
+                break
+        if repeat:
+            return False
+        else:
+            return True
+
+    def random_fill(self):
+        self.clear()
+        my_range = list(range(0, self.size))
+
+        for x in my_range:
+            repeat = False
+            counter = 0
+            while not repeat:
+                if counter > 100:
+                    break
+                else:
+                    counter += 1
+                repeat = self.fill_col(x)
+
 class SudokuShell(cmd.Cmd):
     intro = 'Welcome to the Sudoku.   Type help or ? to list commands.\n'
     prompt = '(sudoku) '
@@ -77,7 +148,6 @@ class SudokuShell(cmd.Cmd):
 
     def do_new(self, arg):
         'Start a new game of Sudoku'
-        print(arg)
         self.board = SudokuBoard(int(arg))
     def do_validate(self, arg):
         'Valid the state of the board'
@@ -89,11 +159,26 @@ class SudokuShell(cmd.Cmd):
         'set the value of the board: X Y Value'
         temp = arg.split(' ')
         self.board.set_cell(int(temp[2]), int(temp[0]), int(temp[1]))
+    def do_easy(self, arg):
+        'Sets up an easy board'
+        self.board.random_fill()
+        self.board.easy()
+        print(self.board)
+    def do_medium(self, arg):
+        'Sets up a medium board'
+        self.board.random_fill()
+        self.board.medium()
+        print(self.board)
+    def do_hard(self, arg):
+        'Sets up a hard board'
+        self.board.random_fill()
+        self.board.hard()
+        print(self.board)
     def do_show(self, arg):
         'Show the game board'
         print(self.board)
     def do_exit(self, arg):
-        'Stop recording, close the sudoku window, and exit:  BYE'
+        'Close the sudoku window, and exit:  BYE'
         print('Thank you for playing Sudoku')
         return True
 
