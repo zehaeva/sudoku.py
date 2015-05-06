@@ -1,12 +1,23 @@
 __author__ = 'zehaeva'
 import cmd, sys, random
 
+
+class IllegalMove(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return self.value
+
+
 class SudokuBoard:
     size = 9
     sub = 3
-    allow_invalid = True
+    allow_invalid = False
+    original_board = []
     empty_cell = '_'
-    #board = [[1, 2, 3, 4, 5, 6, 7, 8, 9], [9, 1, 2, 3, 4, 5, 6, 7, 8], [8, 9, 1, 2, 3, 4, 5, 6, 7],
+
+    # board = [[1, 2, 3, 4, 5, 6, 7, 8, 9], [9, 1, 2, 3, 4, 5, 6, 7, 8], [8, 9, 1, 2, 3, 4, 5, 6, 7],
     #         [7, 8, 9, 1, 2, 3, 4, 5, 6], [6, 7, 8, 9, 1, 2, 3, 4, 5], [5, 6, 7, 8, 9, 1, 2, 3, 4],
     #         [4, 5, 6, 7, 8, 9, 1, 2, 3], [3, 4, 5, 6, 7, 8, 9, 1, 2], [2, 3, 4, 5, 6, 7, 8, 9, 2]]
 
@@ -14,12 +25,13 @@ class SudokuBoard:
         self.size = size
         self.sub = int(size ** (1/2))
         self.board = [[self.empty_cell for x in range(1, size + 1)] for x in range(1, size + 1)]
+        self.original_board = self.board
 
     def __repr__(self):
         my_return = ''
         for x in range(0, self.size):
             my_return += ' '.join([str(y) for y in self.board[x]]) + '\n'
-        return(my_return)
+        return my_return
 
     def set_cell(self, value, x, y):
         old_value = self.board[x][y]
@@ -27,10 +39,10 @@ class SudokuBoard:
         if not self.allow_invalid:
             if not self.valid_cell(x, y):
                 self.board[x][y] = old_value
-                raise
+                raise IllegalMove('Illegal Move!')
 
     def valid_cell(self, x, y):
-        #print('Check Cell [{}][{}]: {}'.format(x, y, self.board[x][y]))
+        # print('Check Cell [{}][{}]: {}'.format(x, y, self.board[x][y]))
         am_i = True
         for z in range(0, self.size):
             # Rows
@@ -39,16 +51,16 @@ class SudokuBoard:
                 break
             # Columns
             if self.board[x][y] == self.board[z][y] and z != x:
-                #print('{} ?= {}'.format(self.board[x][y], self.board[z][y] ))
+                # print('{} ?= {}'.format(self.board[x][y], self.board[z][y] ))
                 am_i = False
                 break
 
         if am_i:
-            # now to check the subcell
+            # now to check the sub-cell
             # which cell_row am i in?
             cell_row = int(int(x / self.sub) * self.sub)
             cell_column = int(int(y / self.sub) * self.sub)
-            #print ('section [{}][{}]'.format(cell_row, cell_column))
+            # print ('section [{}][{}]'.format(cell_row, cell_column))
             for xs in range(cell_row, (cell_row + self.sub)):
                 for ys in range(cell_column, (cell_column + self.sub)):
                     if self.board[x][y] == self.board[xs][ys] and (xs, ys) != (x, y):
@@ -71,13 +83,19 @@ class SudokuBoard:
             my_cells.remove(z)
 
     def easy(self):
-        self.clear_cells(int(self.size ** 2 * .7))
+        self.clear_cells(int(self.size ** 2 * .5))
+        self.original_board = self.board
 
     def medium(self):
         self.clear_cells(int(self.size ** 2 * .6))
+        self.original_board = self.board
 
     def hard(self):
-        self.clear_cells(int(self.size ** 2 * .5))
+        self.clear_cells(int(self.size ** 2 * .7))
+        self.original_board = self.board
+
+    def reset(self):
+        self.board = self.original_board
 
     def clear(self):
         my_range = list(range(0, self.size))
@@ -106,7 +124,7 @@ class SudokuBoard:
             counter = 0
             while curr_value == self.empty_cell:
                 if counter > 10:
-                #clear col
+                    # clear columns
                     repeat = True
                     for yp in my_range:
                         self.board[x][yp] = self.empty_cell
@@ -141,51 +159,71 @@ class SudokuBoard:
                     counter += 1
                 repeat = self.fill_col(x)
 
+
 class SudokuShell(cmd.Cmd):
     intro = 'Welcome to the Sudoku.   Type help or ? to list commands.\n'
     prompt = '(sudoku) '
     board = None
 
     def do_new(self, arg):
-        'Start a new game of Sudoku'
+        """Start a new game of Sudoku"""
         self.board = SudokuBoard(int(arg))
+        self.do_show(True)
+
     def do_validate(self, arg):
-        'Valid the state of the board'
+        """Valid the state of the board"""
         if self.board.valid_board():
             print('The board is valid!')
         else:
             print('Sorry! Something is wrong!')
+
     def do_set(self, arg):
-        'set the value of the board: X Y Value'
+        """set the value of the board: X Y Value"""
         temp = arg.split(' ')
-        self.board.set_cell(int(temp[2]), int(temp[0]), int(temp[1]))
+        try:
+            self.board.set_cell(int(temp[2]), int(temp[0]), int(temp[1]))
+        except IllegalMove:
+            print("That's not a valid move!")
+        finally:
+            self.do_show(True)
+
     def do_easy(self, arg):
-        'Sets up an easy board'
+        """Sets up an easy board"""
         self.board.random_fill()
         self.board.easy()
-        print(self.board)
+        self.do_show(True)
+
     def do_medium(self, arg):
-        'Sets up a medium board'
+        """Sets up a medium board"""
         self.board.random_fill()
         self.board.medium()
-        print(self.board)
+        self.do_show(True)
+
     def do_hard(self, arg):
-        'Sets up a hard board'
+        """Sets up a hard board"""
         self.board.random_fill()
         self.board.hard()
-        print(self.board)
+        self.do_show(True)
+
     def do_show(self, arg):
-        'Show the game board'
+        """Show the game board"""
         print(self.board)
+
+    def do_reset(self, arg):
+        """Reset back to the last starting board"""
+        self.board.reset()
+        self.do_show(True)
+
     def do_exit(self, arg):
-        'Close the sudoku window, and exit:  BYE'
+        """Close the sudoku window, and exit:  BYE"""
         print('Thank you for playing Sudoku')
         return True
 
+
 def parse(arg):
-    'Convert a series of zero or more numbers to an argument tuple'
+    """Convert a series of zero or more numbers to an argument tuple"""
     return tuple(map(int, arg.split()))
-#'''
+# '''
 if __name__ == '__main__':
     SudokuShell().cmdloop()
 '''
